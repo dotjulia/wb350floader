@@ -1,0 +1,43 @@
+name: Build macOS app
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show Swift toolchain
+        run: swiftc --version
+
+      - name: Build app
+        run: make clean build
+
+      - name: Package app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent SamsungCameraDownloader.app SamsungCameraDownloader-macos.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SamsungCameraDownloader-macos
+          path: SamsungCameraDownloader-macos.zip
+
+      - name: Create release for commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: commit-${{ github.sha }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Build $GITHUB_SHA" \
+            --notes "Automated build for commit $GITHUB_SHA." \
+            SamsungCameraDownloader-macos.zip
